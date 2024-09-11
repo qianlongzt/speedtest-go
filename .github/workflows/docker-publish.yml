@@ -1,11 +1,12 @@
 name: Docker
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
     # Publish semver tags as releases.
-    tags: [ 'v*.*.*' ]
+    tags: ["v*.*.*"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
+  workflow_dispatch:
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -14,10 +15,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7,linux/386
 
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
