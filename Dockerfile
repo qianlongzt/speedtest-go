@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS build_base
+FROM golang:1.23.1-alpine AS build_base
 ARG BUILDKIT_SBOM_SCAN_STAGE=true
 
 RUN apk add --no-cache git gcc ca-certificates libc-dev
