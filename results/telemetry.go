@@ -86,7 +86,7 @@ type IPInfoResponse struct {
 	Readme       string `json:"readme"`
 }
 
-func Initialize(c *config.Config) {
+func init() {
 	// changed to use Noto Sans instead of OpenSans, due to issue:
 	// https://github.com/golang/freetype/issues/8
 	fLight, err := freetype.ParseFont(fontLightBytes)

@@ -1,6 +1,7 @@
 package results
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
 
@@ -23,10 +24,11 @@ type StatsData struct {
 var (
 	key   = []byte(securecookie.GenerateRandomKey(32))
 	store = sessions.NewCookieStore(key)
-	conf  = config.LoadedConfig()
+	conf  *config.Config
 )
 
-func init() {
+func Initialize(c *config.Config) {
+	conf = c
 	store.Options = &sessions.Options{
 		Path:     conf.BaseURL + "/stats",
 		MaxAge:   3600 * 1, // 1 hour
@@ -37,12 +39,6 @@ func init() {
 
 func Stats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	t, err := template.New("template").Parse(htmlTemplate)
-	if err != nil {
-		log.Errorf("Failed to parse template: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 
 	if conf.DatabaseType == "none" {
 		render.PlainText(w, r, "Statistics are disabled")
@@ -108,6 +104,16 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 	if err := t.Execute(w, data); err != nil {
 		log.Errorf("Error executing template: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+var t *template.Template
+
+func init() {
+	var err error
+	t, err = template.New("template").Parse(htmlTemplate)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse template: %w", err))
 	}
 }
 

@@ -1,7 +1,9 @@
 package config
 
 import (
-	log "github.com/sirupsen/logrus"
+	"fmt"
+	"sync"
+
 	"github.com/spf13/viper"
 )
 
@@ -34,7 +36,6 @@ type Config struct {
 }
 
 var (
-	configFile   string
 	loadedConfig *Config = nil
 )
 
@@ -56,29 +57,35 @@ func init() {
 
 	viper.SetConfigName("settings")
 	viper.AddConfigPath(".")
+	viper.SetEnvPrefix("speedtest")
+	viper.AutomaticEnv()
 }
 
 func Load(configPath string) Config {
-	var conf Config
-
-	configFile = configPath
 	viper.SetConfigFile(configPath)
-	viper.SetEnvPrefix("speedtest")
-	viper.AutomaticEnv()
-	viper.ReadInConfig()
-
-	if err := viper.Unmarshal(&conf); err != nil {
-		log.Fatalf("Error parsing config: %s", err)
-	}
-
-	loadedConfig = &conf
-
-	return conf
+	return loadConfig()
 }
 
+var load sync.Once
+
+func loadConfig() Config {
+	load.Do(func() {
+		var conf Config
+		if err := viper.ReadInConfig(); err != nil {
+			if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+				// Config file not found; ignore error if desired
+			} else {
+				panic(fmt.Errorf("failed to read config: %w", err))
+			}
+		}
+		if err := viper.Unmarshal(&conf); err != nil {
+			panic(fmt.Errorf("failed to parse config: %w", err))
+		}
+		loadedConfig = &conf
+	})
+	return *loadedConfig
+}
 func LoadedConfig() *Config {
-	if loadedConfig == nil {
-		Load(configFile)
-	}
+	loadConfig()
 	return loadedConfig
 }
