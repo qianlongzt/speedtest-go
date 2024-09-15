@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -63,35 +62,39 @@ func ListenAndServe(conf *config.Config) error {
 	} else {
 		assetFS = justFilesFilesystem{fs: http.Dir(conf.AssetsPath), readDirBatchSize: 2}
 	}
+	base := conf.BaseURL
+	if base == "" {
+		base = "/"
+	}
+	r.Route(base, func(r chi.Router) {
+		r.Get("/*", pages(assetFS, conf.BaseURL))
+		r.HandleFunc("/empty", empty)
+		r.HandleFunc("/backend/empty", empty)
+		r.Get("/garbage", garbage)
+		r.Get("/backend/garbage", garbage)
+		r.Get("/getIP", getIP)
+		r.Get("/backend/getIP", getIP)
+		r.Get("/results", results.DrawPNG)
+		r.Get("/results/", results.DrawPNG)
+		r.Get("/backend/results", results.DrawPNG)
+		r.Get("/backend/results/", results.DrawPNG)
+		r.Post("/results/telemetry", results.Record)
+		r.Post("/backend/results/telemetry", results.Record)
+		r.HandleFunc("/stats", results.Stats)
+		r.HandleFunc("/backend/stats", results.Stats)
 
-	r.Get(conf.BaseURL+"/*", pages(assetFS, conf.BaseURL))
-	r.HandleFunc(conf.BaseURL+"/empty", empty)
-	r.HandleFunc(conf.BaseURL+"/backend/empty", empty)
-	r.Get(conf.BaseURL+"/garbage", garbage)
-	r.Get(conf.BaseURL+"/backend/garbage", garbage)
-	r.Get(conf.BaseURL+"/getIP", getIP)
-	r.Get(conf.BaseURL+"/backend/getIP", getIP)
-	r.Get(conf.BaseURL+"/results", results.DrawPNG)
-	r.Get(conf.BaseURL+"/results/", results.DrawPNG)
-	r.Get(conf.BaseURL+"/backend/results", results.DrawPNG)
-	r.Get(conf.BaseURL+"/backend/results/", results.DrawPNG)
-	r.Post(conf.BaseURL+"/results/telemetry", results.Record)
-	r.Post(conf.BaseURL+"/backend/results/telemetry", results.Record)
-	r.HandleFunc(conf.BaseURL+"/stats", results.Stats)
-	r.HandleFunc(conf.BaseURL+"/backend/stats", results.Stats)
-
-	// PHP frontend default values compatibility
-	r.HandleFunc(conf.BaseURL+"/empty.php", empty)
-	r.HandleFunc(conf.BaseURL+"/backend/empty.php", empty)
-	r.Get(conf.BaseURL+"/garbage.php", garbage)
-	r.Get(conf.BaseURL+"/backend/garbage.php", garbage)
-	r.Get(conf.BaseURL+"/getIP.php", getIP)
-	r.Get(conf.BaseURL+"/backend/getIP.php", getIP)
-	r.Post(conf.BaseURL+"/results/telemetry.php", results.Record)
-	r.Post(conf.BaseURL+"/backend/results/telemetry.php", results.Record)
-	r.HandleFunc(conf.BaseURL+"/stats.php", results.Stats)
-	r.HandleFunc(conf.BaseURL+"/backend/stats.php", results.Stats)
-
+		// PHP frontend default values compatibility
+		r.HandleFunc("/empty.php", empty)
+		r.HandleFunc("/backend/empty.php", empty)
+		r.Get("/garbage.php", garbage)
+		r.Get("/backend/garbage.php", garbage)
+		r.Get("/getIP.php", getIP)
+		r.Get("/backend/getIP.php", getIP)
+		r.Post("/results/telemetry.php", results.Record)
+		r.Post("/backend/results/telemetry.php", results.Record)
+		r.HandleFunc("/stats.php", results.Stats)
+		r.HandleFunc("/backend/stats.php", results.Stats)
+	})
 	go listenProxyProtocol(conf, r)
 
 	return startListener(conf, r)
@@ -113,14 +116,13 @@ func listenProxyProtocol(conf *config.Config, r *chi.Mux) {
 	}
 }
 
+func trimPrefix(url string, base string) string {
+	return strings.TrimPrefix(url, base+"/")
+}
 func pages(fs http.FileSystem, BaseURL string) http.HandlerFunc {
-	var removeBaseURL *regexp.Regexp
-	if BaseURL != "" {
-		removeBaseURL = regexp.MustCompile("^" + BaseURL + "/")
-	}
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		if BaseURL != "" {
-			r.URL.Path = removeBaseURL.ReplaceAllString(r.URL.Path, "/")
+			r.URL.Path = trimPrefix(r.URL.Path, BaseURL)
 		}
 		if r.RequestURI == "/" {
 			r.RequestURI = "/index.html"
@@ -133,7 +135,7 @@ func pages(fs http.FileSystem, BaseURL string) http.HandlerFunc {
 }
 
 func empty(w http.ResponseWriter, r *http.Request) {
-	_, err := io.Copy(ioutil.Discard, r.Body)
+	_, err := io.Copy(io.Discard, r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
