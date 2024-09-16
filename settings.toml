@@ -8,7 +8,7 @@ listen_port = 8989
 enable_proxyprotocol = true
 # allow proxyprotocol headers from these IPs
 # empty list means allow all
-proxyprotocol_allowed_ips = ["127.0.0.1/8"]
+proxyprotocol_allowed_ips = ["127.0.0.1/32"]
 
 # deprecated use enable_proxyprotocol instead
 # proxy protocol port, use 0 to disable

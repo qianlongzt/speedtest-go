@@ -56,7 +56,7 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 			log.Infof("allowed proxy protocol ips: %v", allow)
 			pl.Policy = proxyproto.MustStrictWhiteListPolicy(allow)
 		}
-
+		listener = pl
 		defer pl.Close()
 	}
 
