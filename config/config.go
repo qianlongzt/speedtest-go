@@ -8,14 +8,15 @@ import (
 )
 
 type Config struct {
-	BindAddress         string  `mapstructure:"bind_address"`
-	Port                string  `mapstructure:"listen_port"`
-	BaseURL             string  `mapstructure:"url_base"`
-	ProxyProtocolPort   string  `mapstructure:"proxyprotocol_port"`
-	EnableProxyprotocol bool    `mapstructure:"enable_proxyprotocol"`
-	ServerLat           float64 `mapstructure:"server_lat"`
-	ServerLng           float64 `mapstructure:"server_lng"`
-	IPInfoAPIKey        string  `mapstructure:"ipinfo_api_key"`
+	BindAddress             string   `mapstructure:"bind_address"`
+	Port                    string   `mapstructure:"listen_port"`
+	BaseURL                 string   `mapstructure:"url_base"`
+	ProxyProtocolPort       string   `mapstructure:"proxyprotocol_port"`
+	EnableProxyprotocol     bool     `mapstructure:"enable_proxyprotocol"`
+	ProxyprotocolAllowedIPs []string `mapstructure:"proxyprotocol_allowed_ips"`
+	ServerLat               float64  `mapstructure:"server_lat"`
+	ServerLng               float64  `mapstructure:"server_lng"`
+	IPInfoAPIKey            string   `mapstructure:"ipinfo_api_key"`
 
 	StatsPassword string `mapstructure:"statistics_password"`
 	RedactIP      bool   `mapstructure:"redact_ip_addresses"`
@@ -44,6 +45,7 @@ func init() {
 	viper.SetDefault("listen_port", "8989")
 	viper.SetDefault("url_base", "")
 	viper.SetDefault("enable_proxyprotocol", false)
+	viper.SetDefault("proxyprotocol_allowed_ips", nil)
 	viper.SetDefault("proxyprotocol_port", "0")
 	viper.SetDefault("download_chunks", 4)
 	viper.SetDefault("distance_unit", "K")

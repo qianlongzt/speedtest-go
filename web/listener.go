@@ -49,7 +49,14 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 
 	if conf.EnableProxyprotocol {
 		log.Infof("use proxy protocol listener")
-		pl := &proxyproto.Listener{Listener: listener}
+		pl := &proxyproto.Listener{
+			Listener: listener,
+		}
+		if allow := conf.ProxyprotocolAllowedIPs; len(allow) != 0 {
+			log.Infof("allowed proxy protocol ips: %v", allow)
+			pl.Policy = proxyproto.MustStrictWhiteListPolicy(allow)
+		}
+
 		defer pl.Close()
 	}
 

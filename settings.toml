@@ -5,7 +5,10 @@ listen_port = 8989
 # change the base URL
 # url_base="/librespeed"
 # use proxy protocol on listen_port
-enable_proxyprotocol=true
+enable_proxyprotocol = true
+# allow proxyprotocol headers from these IPs
+# empty list means allow all
+proxyprotocol_allowed_ips = ["127.0.0.1/8"]
 
 # deprecated use enable_proxyprotocol instead
 # proxy protocol port, use 0 to disable
