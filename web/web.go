@@ -16,7 +16,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
-	"github.com/pires/go-proxyproto"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/librespeed/speedtest/config"
@@ -95,25 +94,8 @@ func ListenAndServe(conf *config.Config) error {
 		r.HandleFunc("/stats.php", results.Stats)
 		r.HandleFunc("/backend/stats.php", results.Stats)
 	})
-	go listenProxyProtocol(conf, r)
 
 	return startListener(conf, r)
-}
-
-func listenProxyProtocol(conf *config.Config, r *chi.Mux) {
-	if conf.ProxyProtocolPort != "0" {
-		addr := net.JoinHostPort(conf.BindAddress, conf.ProxyProtocolPort)
-		l, err := net.Listen("tcp", addr)
-		if err != nil {
-			log.Fatalf("Cannot listen on proxy protocol port %s: %s", conf.ProxyProtocolPort, err)
-		}
-
-		pl := &proxyproto.Listener{Listener: l}
-		defer pl.Close()
-
-		log.Infof("Starting proxy protocol listener on %s", addr)
-		log.Fatal(http.Serve(pl, r))
-	}
 }
 
 func trimPrefix(url string, base string) string {

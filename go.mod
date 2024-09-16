@@ -20,6 +20,7 @@ require (
 	github.com/umahmood/haversine v0.0.0-20151105152445-808ab04add26
 	go.etcd.io/bbolt v1.3.11
 	golang.org/x/image v0.20.0
+	golang.org/x/net v0.29.0
 )
 
 require (
