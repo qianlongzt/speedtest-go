@@ -1,7 +1,9 @@
 package web
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,14 +17,14 @@ import (
 	"golang.org/x/net/http2/h2c"
 )
 
-func startListener(conf *config.Config, r *chi.Mux) error {
+func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
 	// See if systemd socket activation has been used when starting our process
 	listeners, err := activation.Listeners()
 	if err != nil {
-		panic(fmt.Errorf("error whilst checking for systemd socket activation %s", err))
+		return fmt.Errorf("error whilst checking for systemd socket activation %s", err)
 	}
 	if conf.ProxyProtocolPort != "0" {
-		panic("proxyprotocol_port is deprecated, use enable_proxyprotocol")
+		return errors.New("proxyprotocol_port is deprecated, use enable_proxyprotocol")
 	}
 
 	var listener net.Listener
@@ -33,18 +35,18 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 		log.Infof("Starting backend server on %s", addr)
 		l, err := net.Listen("tcp", addr)
 		if err != nil {
-			panic(fmt.Errorf("failed to listen on %s: %w", addr, err))
+			return fmt.Errorf("failed to listen on %s: %w", addr, err)
 		}
 		listener = l
 	case 1:
 		log.Info("Starting backend server on inherited file descriptor via systemd socket activation")
 		if conf.BindAddress != "" || conf.Port != "" {
 			log.Errorf("Both an address/port (%s:%s) has been specificed in the config AND externally configured socket activation has been detected", conf.BindAddress, conf.Port)
-			log.Fatal(`Please deconfigure socket activation (e.g. in systemd unit files), or set both 'bind_address' and 'listen_port' to ''`)
+			return errors.New(`please deconfigure socket activation (e.g. in systemd unit files), or set both 'bind_address' and 'listen_port' to ''`)
 		}
 		listener = listeners[0]
 	default:
-		log.Fatalf("Asked to listen on %d sockets via systemd activation.  Sorry we currently only support listening on 1 socket.", len(listeners))
+		return fmt.Errorf("asked to listen on %d sockets via systemd activation.  Sorry we currently only support listening on 1 socket", len(listeners))
 	}
 
 	if conf.EnableProxyprotocol {
@@ -63,6 +65,7 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 	srv := &http.Server{
 		Handler: r,
 	}
+	var listenFn func() error
 	// TLS and HTTP/2.
 	if conf.EnableTLS {
 		log.Info("Use TLS connection.")
@@ -71,7 +74,9 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 			// If TLSNextProto is not nil, HTTP/2 support is not enabled automatically.
 			srv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler))
 		}
-		err = srv.ServeTLS(listener, conf.TLSCertFile, conf.TLSKeyFile)
+		listenFn = func() error {
+			return srv.ServeTLS(listener, conf.TLSCertFile, conf.TLSKeyFile)
+		}
 	} else {
 		if conf.EnableHTTP2 {
 			log.Info("Use HTTP2 connection.")
@@ -79,11 +84,25 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 			srv.Handler = h2c.NewHandler(r, h2s)
 			err = http2.ConfigureServer(srv, h2s)
 			if err != nil {
-				log.Fatalf("http2.ConfigureServer: %s", err)
+				return fmt.Errorf("http2.ConfigureServer: %s", err)
 			}
 		}
-		err = srv.Serve(listener)
+		listenFn = func() error {
+			return srv.Serve(listener)
+		}
 	}
+
+	go func() {
+		err := listenFn()
+		log.Info("http server closed")
+		if err != nil && err != http.ErrServerClosed {
+			panic(fmt.Errorf("failed to listen: %w", err))
+		}
+	}()
+	<-ctx.Done()
+	log.Info("http server shutting down")
+	err = srv.Shutdown(ctx)
+	log.Info("http server shutdown finished")
 
 	return err
 }

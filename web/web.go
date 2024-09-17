@@ -1,8 +1,10 @@
 package web
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -35,7 +37,7 @@ var (
 	randomData = getRandomData(chunkSize)
 )
 
-func ListenAndServe(conf *config.Config) error {
+func ListenAndServe(ctx context.Context, conf *config.Config) error {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.GetHead)
@@ -55,7 +57,7 @@ func ListenAndServe(conf *config.Config) error {
 		log.Warnf("Configured asset path %s does not exist or is not a directory, using default assets", conf.AssetsPath)
 		sub, err := fs.Sub(defaultAssets, "assets")
 		if err != nil {
-			log.Fatalf("Failed when processing default assets: %s", err)
+			return fmt.Errorf("failed when processing default assets: %w", err)
 		}
 		assetFS = http.FS(sub)
 	} else {
@@ -95,7 +97,7 @@ func ListenAndServe(conf *config.Config) error {
 		r.HandleFunc("/backend/stats.php", results.Stats)
 	})
 
-	return startListener(conf, r)
+	return startListener(ctx, conf, r)
 }
 
 func trimPrefix(url string, base string) string {

@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 	_ "time/tzdata"
 
 	"github.com/librespeed/speedtest/config"
@@ -22,6 +26,29 @@ func main() {
 	conf := config.Load(*optConfig)
 	web.SetServerLocation(&conf)
 	results.Initialize(&conf)
-	database.SetDBInfo(&conf)
-	log.Fatal(web.ListenAndServe(&conf))
+	err := database.SetDBInfo(&conf)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	stopWait := make(chan struct{})
+	go func() {
+		err := web.ListenAndServe(ctx, &conf)
+		if err != nil {
+			log.Errorf("web server error: %s", err)
+		}
+		close(stopWait)
+	}()
+	wait()
+	log.Info("server stopped")
+	cancel()
+	<-stopWait
+}
+
+func wait() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	sig := <-sigChan
+	log.Infof("signal received: %s", sig)
 }

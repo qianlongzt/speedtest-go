@@ -23,7 +23,7 @@ var (
 func getRandomData(length int) []byte {
 	data := make([]byte, length)
 	if _, err := rand.Read(data); err != nil {
-		log.Fatalf("Failed to generate random data: %s", err)
+		panic(fmt.Errorf("failed to generate random data: %s", err))
 	}
 	return data
 }

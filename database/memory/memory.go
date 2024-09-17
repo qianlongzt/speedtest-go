@@ -18,8 +18,8 @@ type Memory struct {
 	records []schema.TelemetryData
 }
 
-func Open(_ string) *Memory {
-	return &Memory{}
+func Open(_ schema.Config) (schema.DataAccess, error) {
+	return &Memory{}, nil
 }
 
 func (mem *Memory) Insert(data *schema.TelemetryData) error {

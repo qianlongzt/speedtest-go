@@ -7,7 +7,6 @@ import (
 	"github.com/librespeed/speedtest/database/schema"
 
 	_ "github.com/lib/pq"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -18,13 +17,13 @@ type PostgreSQL struct {
 	db *sql.DB
 }
 
-func Open(hostname, username, password, database string) *PostgreSQL {
-	connStr := fmt.Sprintf(connectionStringTemplate, username, password, hostname, database)
+func Open(c schema.Config) (schema.DataAccess, error) {
+	connStr := fmt.Sprintf(connectionStringTemplate, c.Username, c.Password, c.Hostname, c.Database)
 	conn, err := sql.Open("postgres", connStr)
 	if err != nil {
-		log.Fatalf("Cannot open PostgreSQL database: %s", err)
+		return nil, fmt.Errorf("cannot open PostgreSQL database: %w", err)
 	}
-	return &PostgreSQL{db: conn}
+	return &PostgreSQL{db: conn}, nil
 }
 
 func (p *PostgreSQL) Insert(data *schema.TelemetryData) error {

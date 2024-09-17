@@ -1,6 +1,8 @@
 package database
 
 import (
+	"fmt"
+
 	"github.com/librespeed/speedtest/config"
 	"github.com/librespeed/speedtest/database/bolt"
 	"github.com/librespeed/speedtest/database/memory"
@@ -8,33 +10,37 @@ import (
 	"github.com/librespeed/speedtest/database/none"
 	"github.com/librespeed/speedtest/database/postgresql"
 	"github.com/librespeed/speedtest/database/schema"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var (
-	DB DataAccess
+	DB schema.DataAccess
 )
 
-type DataAccess interface {
-	Insert(*schema.TelemetryData) error
-	FetchByUUID(string) (*schema.TelemetryData, error)
-	FetchLast100() ([]schema.TelemetryData, error)
+type opener func(schema.Config) (schema.DataAccess, error)
+
+var dbTypeMap = map[string]opener{
+	"postgresql": postgresql.Open,
+	"mysql":      mysql.Open,
+	"bolt":       bolt.Open,
+	"memory":     memory.Open,
+	"none":       none.Open,
 }
 
-func SetDBInfo(conf *config.Config) {
-	switch conf.DatabaseType {
-	case "postgresql":
-		DB = postgresql.Open(conf.DatabaseHostname, conf.DatabaseUsername, conf.DatabasePassword, conf.DatabaseName)
-	case "mysql":
-		DB = mysql.Open(conf.DatabaseHostname, conf.DatabaseUsername, conf.DatabasePassword, conf.DatabaseName)
-	case "bolt":
-		DB = bolt.Open(conf.DatabaseFile)
-	case "memory":
-		DB = memory.Open("")
-	case "none":
-		DB = none.Open("")
-	default:
-		log.Fatalf("Unsupported database type: %s", conf.DatabaseType)
+func SetDBInfo(conf *config.Config) error {
+	open, ok := dbTypeMap[conf.DatabaseType]
+	if !ok {
+		panic(fmt.Errorf("unsupported database type: %s", conf.DatabaseType))
 	}
+	var err error
+	DB, err = open(schema.Config{
+		File:     conf.DatabaseFile,
+		Hostname: conf.DatabaseHostname,
+		Username: conf.DatabaseUsername,
+		Password: conf.DatabasePassword,
+		Database: conf.DatabaseName,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }

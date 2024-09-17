@@ -136,3 +136,4 @@ speedtest.db
 speedtest-backend
 dist/
 speedtest
+.vscode/

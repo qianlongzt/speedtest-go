@@ -7,7 +7,6 @@ import (
 	"github.com/librespeed/speedtest/database/schema"
 
 	_ "github.com/go-sql-driver/mysql"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -18,13 +17,13 @@ type MySQL struct {
 	db *sql.DB
 }
 
-func Open(hostname, username, password, database string) *MySQL {
-	connStr := fmt.Sprintf(connectionStringTemplate, username, password, hostname, database)
+func Open(c schema.Config) (schema.DataAccess, error) {
+	connStr := fmt.Sprintf(connectionStringTemplate, c.Username, c.Password, c.Hostname, c.Database)
 	conn, err := sql.Open("mysql", connStr)
 	if err != nil {
-		log.Fatalf("Cannot open MySQL database: %s", err)
+		return nil, fmt.Errorf("cannot open MySQL database: %w", err)
 	}
-	return &MySQL{db: conn}
+	return &MySQL{db: conn}, nil
 }
 
 func (p *MySQL) Insert(data *schema.TelemetryData) error {

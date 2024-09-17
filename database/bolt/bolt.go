@@ -3,11 +3,11 @@ package bolt
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/librespeed/speedtest/database/schema"
 
-	log "github.com/sirupsen/logrus"
 	"go.etcd.io/bbolt"
 )
 
@@ -19,12 +19,12 @@ type Bolt struct {
 	db *bbolt.DB
 }
 
-func Open(databaseFile string) *Bolt {
-	db, err := bbolt.Open(databaseFile, 0666, nil)
+func Open(c schema.Config) (schema.DataAccess, error) {
+	db, err := bbolt.Open(c.File, 0666, nil)
 	if err != nil {
-		log.Fatalf("Cannot open BoltDB database file: %s", err)
+		return nil, fmt.Errorf("cannot open BoltDB database file: %w", err)
 	}
-	return &Bolt{db: db}
+	return &Bolt{db: db}, nil
 }
 
 func (p *Bolt) Insert(data *schema.TelemetryData) error {

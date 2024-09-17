@@ -6,8 +6,8 @@ import (
 
 type None struct{}
 
-func Open(_ string) *None {
-	return &None{}
+func Open(_ schema.Config) (schema.DataAccess, error) {
+	return &None{}, nil
 }
 
 func (n *None) Insert(_ *schema.TelemetryData) error {

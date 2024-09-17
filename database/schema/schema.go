@@ -18,3 +18,17 @@ type TelemetryData struct {
 	Log       string
 	UUID      string
 }
+
+type Config struct {
+	File     string
+	Hostname string
+	Username string
+	Password string
+	Database string
+}
+
+type DataAccess interface {
+	Insert(*TelemetryData) error
+	FetchByUUID(string) (*TelemetryData, error)
+	FetchLast100() ([]TelemetryData, error)
+}

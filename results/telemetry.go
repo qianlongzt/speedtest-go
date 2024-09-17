@@ -3,6 +3,7 @@ package results
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
@@ -91,13 +92,13 @@ func init() {
 	// https://github.com/golang/freetype/issues/8
 	fLight, err := freetype.ParseFont(fontLightBytes)
 	if err != nil {
-		log.Fatalf("Error parsing NotoSansDisplay-Light font: %s", err)
+		panic(fmt.Errorf("error parsing NotoSansDisplay-Light font: %w", err))
 	}
 	fontLight = fLight
 
 	fMedium, err := freetype.ParseFont(fontMediumBytes)
 	if err != nil {
-		log.Fatalf("Error parsing NotoSansDisplay-Medium font: %s", err)
+		panic(fmt.Errorf("error parsing NotoSansDisplay-Medium font: %w", err))
 	}
 	fontBold = fMedium
 
