@@ -10,9 +10,7 @@ COPY ./ ./
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 \
   go build -ldflags "-w -s" -trimpath -o speedtest .
 
-FROM gcr.io/distroless/static-debian12
-
-USER nobody
+FROM scratch
 
 WORKDIR /app
 COPY --from=build_base /build/speedtest ./
