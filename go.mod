@@ -3,7 +3,6 @@ module github.com/librespeed/speedtest
 go 1.23.1
 
 require (
-	github.com/breml/rootcerts v0.2.18
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/cors v1.2.1
@@ -19,6 +18,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/umahmood/haversine v0.0.0-20151105152445-808ab04add26
 	go.etcd.io/bbolt v1.3.11
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20240916204253-42ee18b96377
 	golang.org/x/image v0.20.0
 	golang.org/x/net v0.29.0
 )
