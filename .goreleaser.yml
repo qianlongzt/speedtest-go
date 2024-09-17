@@ -1,4 +1,5 @@
-project_name: 'speedtest-go'
+version: 2
+project_name: "speedtest-go"
 #dist: ./out
 before:
   hooks:
@@ -106,10 +107,14 @@ archives:
       - LICENSE
       - settings.toml
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 changelog:
-  skip: false
+  disable: true
   sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
 release:
   github:
     owner: librespeed
