@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	_ "time/tzdata"
 
@@ -25,7 +26,13 @@ var (
 )
 
 func init() {
-	zerologLogger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Caller().Logger()
+	zerologLogger := zerolog.New(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	}).
+		With().
+		Caller().
+		Logger()
 
 	logger := slog.New(
 		slogzerolog.Option{
