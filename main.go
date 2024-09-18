@@ -14,6 +14,8 @@ import (
 	"github.com/librespeed/speedtest/database"
 	"github.com/librespeed/speedtest/results"
 	"github.com/librespeed/speedtest/web"
+	"github.com/rs/zerolog"
+	slogzerolog "github.com/samber/slog-zerolog/v2"
 
 	_ "golang.org/x/crypto/x509roots/fallback"
 )
@@ -21,6 +23,19 @@ import (
 var (
 	optConfig = flag.String("c", "", "config file to be used, defaults to settings.toml in the same directory")
 )
+
+func init() {
+	zerologLogger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Caller().Logger()
+
+	logger := slog.New(
+		slogzerolog.Option{
+			Level:  slog.LevelInfo,
+			Logger: &zerologLogger,
+		}.
+			NewZerologHandler(),
+	)
+	slog.SetDefault(logger)
+}
 
 func main() {
 	flag.Parse()
