@@ -23,6 +23,10 @@ func Open(c schema.Config) (schema.DataAccess, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot open PostgreSQL database: %w", err)
 	}
+	err = conn.Ping()
+	if err != nil {
+		return nil, err
+	}
 	return &PostgreSQL{db: conn}, nil
 }
 

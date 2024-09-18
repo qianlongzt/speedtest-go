@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	connectionStringTemplate = `%s:%s@%s/%s?parseTime=true`
+	connectionStringTemplate = `%s:%s@tcp(%s)/%s?parseTime=true`
 )
 
 type MySQL struct {
@@ -22,6 +22,10 @@ func Open(c schema.Config) (schema.DataAccess, error) {
 	conn, err := sql.Open("mysql", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open MySQL database: %w", err)
+	}
+	err = conn.Ping()
+	if err != nil {
+		return nil, err
 	}
 	return &MySQL{db: conn}, nil
 }
