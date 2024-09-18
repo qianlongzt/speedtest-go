@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -23,7 +24,6 @@ import (
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"github.com/oklog/ulid/v2"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/image/font"
 )
 
@@ -197,13 +197,13 @@ func Record(w http.ResponseWriter, r *http.Request) {
 
 	err := database.DB.Insert(&record)
 	if err != nil {
-		log.Errorf("Error inserting into database: %s", err)
+		slog.Error("inserting into database", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if _, err := w.Write([]byte("id " + uuid.String())); err != nil {
-		log.Errorf("Error writing ID to telemetry request: %s", err)
+		slog.Error("writing ID to telemetry request", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
@@ -218,14 +218,14 @@ func DrawPNG(w http.ResponseWriter, r *http.Request) {
 	uuid := r.FormValue("id")
 	record, err := database.DB.FetchByUUID(uuid)
 	if err != nil {
-		log.Errorf("Error querying database: %s", err)
+		slog.Error("querying database", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	var result Result
 	if err := json.Unmarshal([]byte(record.ISPInfo), &result); err != nil {
-		log.Errorf("Error parsing ISP info: %s", err)
+		slog.Error("parsing ISP info", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -368,6 +368,6 @@ func DrawPNG(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "inline; filename="+uuid+".png")
 	w.Header().Set("Content-Type", "image/png")
 	if err := png.Encode(w, canvas); err != nil {
-		log.Errorf("Failed to output image to HTTP client: %s", err)
+		slog.Error("failed to output image to HTTP client", slog.Any("error", err))
 	}
 }

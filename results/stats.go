@@ -4,10 +4,10 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/render"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
@@ -72,7 +72,7 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 				case "L100":
 					stats, err := database.DB.FetchLast100()
 					if err != nil {
-						log.Errorf("Error fetching data from database: %s", err)
+						slog.Error("fetching data from database", slog.Any("error", err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -81,7 +81,7 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 				default:
 					stat, err := database.DB.FetchByUUID(id)
 					if err != nil {
-						log.Errorf("Error fetching data from database: %s", err)
+						slog.Error("fetching data from database", slog.Any("error", err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -104,7 +104,7 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := t.Execute(w, data); err != nil {
-		log.Errorf("Error executing template: %s", err)
+		slog.Error("executing template", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }

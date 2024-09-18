@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -18,7 +19,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/librespeed/speedtest/config"
 	"github.com/librespeed/speedtest/results"
@@ -54,7 +54,8 @@ func ListenAndServe(ctx context.Context, conf *config.Config) error {
 
 	var assetFS http.FileSystem
 	if fi, err := os.Stat(conf.AssetsPath); os.IsNotExist(err) || !fi.IsDir() {
-		log.Warnf("Configured asset path %s does not exist or is not a directory, using default assets", conf.AssetsPath)
+		slog.Warn("Configured asset path does not exist or is not a directory, using default assets",
+			slog.Any("path", conf.AssetsPath))
 		sub, err := fs.Sub(defaultAssets, "assets")
 		if err != nil {
 			return fmt.Errorf("failed when processing default assets: %w", err)
@@ -143,8 +144,8 @@ func garbage(w http.ResponseWriter, r *http.Request) {
 	if ckSize != "" {
 		i, err := strconv.ParseInt(ckSize, 10, 64)
 		if err != nil {
-			log.Errorf("Invalid chunk size: %s", ckSize)
-			log.Warnf("Will use default value %d", chunks)
+			slog.Error("Invalid chunk size: %s", slog.Any("ckSize", ckSize))
+			slog.Warn("Will use default value %d", slog.Any("ckSize", chunks))
 		} else {
 			// limit max chunk size to 1024
 			if i > 1024 {
@@ -157,7 +158,11 @@ func garbage(w http.ResponseWriter, r *http.Request) {
 
 	for i := 0; i < chunks; i++ {
 		if _, err := w.Write(randomData); err != nil {
-			log.Errorf("Error writing back to client at chunk number %d: %s", i, err)
+			slog.Error("Error writing back to client",
+				slog.Any("chunk number", i),
+				slog.Any("error", err),
+			)
+
 			break
 		}
 	}
@@ -199,7 +204,7 @@ func getIP(w http.ResponseWriter, r *http.Request) {
 	if isSpecialIP {
 		b, _ := json.Marshal(&ret)
 		if _, err := w.Write(b); err != nil {
-			log.Errorf("Error writing to client: %s", err)
+			slog.Error("writing to client", slog.Any("error", err))
 		}
 		return
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/librespeed/speedtest/config"
 	"github.com/pires/go-proxyproto"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -32,17 +32,18 @@ func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
 	switch len(listeners) {
 	case 0:
 		addr := net.JoinHostPort(conf.BindAddress, conf.Port)
-		log.Infof("Starting backend server on %s", addr)
+		slog.Info("Starting backend server on", "address", addr)
 		l, err := net.Listen("tcp", addr)
 		if err != nil {
 			return fmt.Errorf("failed to listen on %s: %w", addr, err)
 		}
 		listener = l
 	case 1:
-		log.Info("Starting backend server on inherited file descriptor via systemd socket activation")
+		slog.Info("Starting backend server on inherited file descriptor via systemd socket activation")
 		if conf.BindAddress != "" || conf.Port != "" {
-			log.Errorf("Both an address/port (%s:%s) has been specificed in the config AND externally configured socket activation has been detected", conf.BindAddress, conf.Port)
-			return errors.New(`please deconfigure socket activation (e.g. in systemd unit files), or set both 'bind_address' and 'listen_port' to ''`)
+			slog.Error("Both an address/port has been specified in the config AND externally configured socket activation has been detected")
+			slog.Error("Please deconfigure socket activation (e.g. in systemd unit files), or set both 'bind_address' and 'listen_port' to ''")
+			return errors.New("configure either 'bind_address' and 'listen_port' or systemd socket activation")
 		}
 		listener = listeners[0]
 	default:
@@ -50,12 +51,12 @@ func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
 	}
 
 	if conf.EnableProxyprotocol {
-		log.Infof("use proxy protocol listener")
+		slog.Info("use proxy protocol listener")
 		pl := &proxyproto.Listener{
 			Listener: listener,
 		}
 		if allow := conf.ProxyprotocolAllowedIPs; len(allow) != 0 {
-			log.Infof("allowed proxy protocol ips: %v", allow)
+			slog.Info("allowed proxy protocol from", slog.Any("ips", allow))
 			pl.Policy = proxyproto.MustStrictWhiteListPolicy(allow)
 		}
 		listener = pl
@@ -68,7 +69,7 @@ func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
 	var listenFn func() error
 	// TLS and HTTP/2.
 	if conf.EnableTLS {
-		log.Info("Use TLS connection.")
+		slog.Info("Use TLS connection")
 
 		if !(conf.EnableHTTP2) {
 			// If TLSNextProto is not nil, HTTP/2 support is not enabled automatically.
@@ -79,7 +80,7 @@ func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
 		}
 	} else {
 		if conf.EnableHTTP2 {
-			log.Info("Use HTTP2 connection.")
+			slog.Info("Use HTTP2 connection.")
 			h2s := &http2.Server{}
 			srv.Handler = h2c.NewHandler(r, h2s)
 			err = http2.ConfigureServer(srv, h2s)
@@ -94,15 +95,15 @@ func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
 
 	go func() {
 		err := listenFn()
-		log.Info("http server closed")
+		slog.Info("http server closed")
 		if err != nil && err != http.ErrServerClosed {
 			panic(fmt.Errorf("failed to listen: %w", err))
 		}
 	}()
 	<-ctx.Done()
-	log.Info("http server shutting down")
+	slog.Info("http server shutting down")
 	err = srv.Shutdown(ctx)
-	log.Info("http server shutdown finished")
+	slog.Info("http server shutdown finished")
 
 	return err
 }

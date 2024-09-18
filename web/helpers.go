@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/umahmood/haversine"
 
 	"github.com/librespeed/speedtest/config"
@@ -49,19 +49,19 @@ func getIPInfo(addr string) results.IPInfoResponse {
 	var ret results.IPInfoResponse
 	resp, err := http.DefaultClient.Get(getIPInfoURL(addr))
 	if err != nil {
-		log.Errorf("Error getting response from ipinfo.io: %s", err)
+		slog.Error("getting response from ipinfo.io", slog.Any("error", err))
 		return ret
 	}
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("Error reading response from ipinfo.io: %s", err)
+		slog.Error("reading response from ipinfo.io", slog.Any("error", err))
 		return ret
 	}
 	defer resp.Body.Close()
 
 	if err := json.Unmarshal(raw, &ret); err != nil {
-		log.Errorf("Error parsing response from ipinfo.io: %s", err)
+		slog.Error("parsing response from ipinfo.io", slog.Any("error", err))
 	}
 
 	return ret
@@ -69,7 +69,10 @@ func getIPInfo(addr string) results.IPInfoResponse {
 
 func SetServerLocation(conf *config.Config) {
 	if conf.ServerLat != 0 || conf.ServerLng != 0 {
-		log.Infof("Configured server coordinates: %.6f, %.6f", conf.ServerLat, conf.ServerLng)
+		slog.Info("Configured server coordinates",
+			slog.Float64("lat", conf.ServerLat),
+			slog.Float64("lng", conf.ServerLng))
+
 		serverCoord.Lat = conf.ServerLat
 		serverCoord.Lon = conf.ServerLng
 		return
@@ -78,30 +81,32 @@ func SetServerLocation(conf *config.Config) {
 	var ret results.IPInfoResponse
 	resp, err := http.DefaultClient.Get(getIPInfoURL(""))
 	if err != nil {
-		log.Errorf("Error getting repsonse from ipinfo.io: %s", err)
+		slog.Error("getting response from ipinfo.io", slog.Any("error", err))
 		return
 	}
+
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("Error reading response from ipinfo.io: %s", err)
+		slog.Error("reading response from ipinfo.io", slog.Any("error", err))
 		return
 	}
 	defer resp.Body.Close()
 
 	if err := json.Unmarshal(raw, &ret); err != nil {
-		log.Errorf("Error parsing response from ipinfo.io: %s", err)
-		return
+		slog.Error("parsing response from ipinfo.io", slog.Any("error", err))
 	}
 
 	if ret.Location != "" {
 		serverCoord, err = parseLocationString(ret.Location)
 		if err != nil {
-			log.Errorf("Cannot get server coordinates: %s", err)
+			slog.Error("Cannot get server coordinates", slog.Any("error", err))
 			return
 		}
 	}
-
-	log.Infof("Fetched server coordinates: %.6f, %.6f", serverCoord.Lat, serverCoord.Lon)
+	slog.Info("Fetched server coordinates",
+		slog.Float64("lat", serverCoord.Lat),
+		slog.Float64("lng", serverCoord.Lon),
+	)
 }
 
 func parseLocationString(location string) (haversine.Coord, error) {
@@ -109,20 +114,19 @@ func parseLocationString(location string) (haversine.Coord, error) {
 
 	parts := strings.Split(location, ",")
 	if len(parts) != 2 {
-		err := fmt.Errorf("unknown location format: %s", location)
-		log.Error(err)
-		return coord, err
+		slog.Error("unknown location format", slog.String("location", location))
+		return coord, fmt.Errorf("unknown location format: %s", location)
 	}
 
 	lat, err := strconv.ParseFloat(parts[0], 64)
 	if err != nil {
-		log.Errorf("Error parsing latitude: %s", parts[0])
+		slog.Error("parsing latitude", slog.String("latitude", parts[0]))
 		return coord, err
 	}
 
 	lng, err := strconv.ParseFloat(parts[1], 64)
 	if err != nil {
-		log.Errorf("Error parsing longitude: %s", parts[0])
+		slog.Error("parsing longitude", slog.String("longitude", parts[1]))
 		return coord, err
 	}
 
@@ -135,7 +139,7 @@ func parseLocationString(location string) (haversine.Coord, error) {
 func calculateDistance(clientLocation string, unit string) string {
 	clientCoord, err := parseLocationString(clientLocation)
 	if err != nil {
-		log.Errorf("Error parsing client coordinates: %s", err)
+		slog.Error("parsing client coordinates", slog.Any("error", err))
 		return ""
 	}
 
