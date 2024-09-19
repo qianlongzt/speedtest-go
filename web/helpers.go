@@ -2,15 +2,14 @@ package web
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/umahmood/haversine"
+
+	resty "github.com/go-resty/resty/v2"
 
 	"github.com/librespeed/speedtest/config"
 	"github.com/librespeed/speedtest/results"
@@ -45,25 +44,28 @@ func getIPInfoURL(address string) string {
 	return ipInfoURL
 }
 
+var httpClient = resty.New()
+
+func init() {
+	httpClient.OnError(func(req *resty.Request, err error) {
+		if v, ok := err.(*resty.ResponseError); ok {
+			slog.Error("resty error", slog.Any("error", v.Err), slog.Any("response", v.Response))
+			return
+		}
+		slog.Error("resty error", slog.Any("error", err))
+	})
+}
+
 func getIPInfo(addr string) results.IPInfoResponse {
 	var ret results.IPInfoResponse
-	resp, err := http.DefaultClient.Get(getIPInfoURL(addr))
+	_, err := httpClient.R().
+		SetResult(&ret).
+		Get(getIPInfoURL(addr))
+
 	if err != nil {
 		slog.Error("getting response from ipinfo.io", slog.Any("error", err))
 		return ret
 	}
-
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("reading response from ipinfo.io", slog.Any("error", err))
-		return ret
-	}
-	defer resp.Body.Close()
-
-	if err := json.Unmarshal(raw, &ret); err != nil {
-		slog.Error("parsing response from ipinfo.io", slog.Any("error", err))
-	}
-
 	return ret
 }
 
@@ -79,21 +81,13 @@ func SetServerLocation(conf *config.Config) {
 	}
 
 	var ret results.IPInfoResponse
-	resp, err := http.DefaultClient.Get(getIPInfoURL(""))
+
+	_, err := httpClient.R().
+		SetResult(&ret).
+		Get(getIPInfoURL(""))
 	if err != nil {
 		slog.Error("getting response from ipinfo.io", slog.Any("error", err))
 		return
-	}
-
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("reading response from ipinfo.io", slog.Any("error", err))
-		return
-	}
-	defer resp.Body.Close()
-
-	if err := json.Unmarshal(raw, &ret); err != nil {
-		slog.Error("parsing response from ipinfo.io", slog.Any("error", err))
 	}
 
 	if ret.Location != "" {
