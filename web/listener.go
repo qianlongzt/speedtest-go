@@ -23,7 +23,7 @@ func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
 	if err != nil {
 		return fmt.Errorf("error whilst checking for systemd socket activation %s", err)
 	}
-	if conf.ProxyProtocolPort != "0" {
+	if p := conf.ProxyProtocolPort; !(p == "0" || p == "") {
 		return errors.New("proxyprotocol_port is deprecated, use enable_proxyprotocol")
 	}
 
@@ -71,7 +71,7 @@ func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
 	if conf.EnableTLS {
 		slog.Info("Use TLS connection")
 
-		if !(conf.EnableHTTP2) {
+		if !conf.EnableHTTP2 {
 			// If TLSNextProto is not nil, HTTP/2 support is not enabled automatically.
 			srv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler))
 		}

@@ -1,22 +1,28 @@
 package config
 
 import (
-	"fmt"
-	"sync"
+	"log/slog"
+	"strings"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
+
+	toml "github.com/knadh/koanf/parsers/toml/v2"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
 )
 
 type Config struct {
-	BindAddress             string   `mapstructure:"bind_address"`
-	Port                    string   `mapstructure:"listen_port"`
-	BaseURL                 string   `mapstructure:"url_base"`
+	BindAddress string `mapstructure:"bind_address"`
+	Port        string `mapstructure:"listen_port"`
+	BaseURL     string `mapstructure:"url_base"`
+	// Deprecated
 	ProxyProtocolPort       string   `mapstructure:"proxyprotocol_port"`
 	EnableProxyprotocol     bool     `mapstructure:"enable_proxyprotocol"`
 	ProxyprotocolAllowedIPs []string `mapstructure:"proxyprotocol_allowed_ips"`
-	ServerLat               float64  `mapstructure:"server_lat"`
-	ServerLng               float64  `mapstructure:"server_lng"`
-	IPInfoAPIKey            string   `mapstructure:"ipinfo_api_key"`
+
+	ServerLat    float64 `mapstructure:"server_lat"`
+	ServerLng    float64 `mapstructure:"server_lng"`
+	IPInfoAPIKey string  `mapstructure:"ipinfo_api_key"`
 
 	StatsPassword string `mapstructure:"statistics_password"`
 	RedactIP      bool   `mapstructure:"redact_ip_addresses"`
@@ -38,58 +44,48 @@ type Config struct {
 }
 
 var (
-	loadedConfig *Config = nil
+	config *Config = &Config{
+		Port:                    "8989",
+		EnableProxyprotocol:     false,
+		ProxyprotocolAllowedIPs: []string{"127.0.0.1/32", "::1/128"},
+		StatsPassword:           "PASSWORD",
+		DatabaseType:            "postgresql",
+		DatabaseHostname:        "localhost",
+		DatabaseName:            "speedtest",
+		DatabaseUsername:        "postgres",
+	}
 )
 
-func init() {
-	viper.SetDefault("listen_port", "8989")
-	viper.SetDefault("url_base", "")
-	viper.SetDefault("enable_proxyprotocol", false)
-	viper.SetDefault("proxyprotocol_allowed_ips", nil)
-	viper.SetDefault("proxyprotocol_port", "0")
-	viper.SetDefault("download_chunks", 4)
-	viper.SetDefault("distance_unit", "K")
-	viper.SetDefault("enable_cors", false)
-	viper.SetDefault("statistics_password", "PASSWORD")
-	viper.SetDefault("redact_ip_addresses", false)
-	viper.SetDefault("database_type", "postgresql")
-	viper.SetDefault("database_hostname", "localhost")
-	viper.SetDefault("database_name", "speedtest")
-	viper.SetDefault("database_username", "postgres")
-	viper.SetDefault("enable_tls", false)
-	viper.SetDefault("enable_http2", false)
+func Load(configPath string) (*Config, error) {
+	var k = koanf.New(".")
 
-	viper.SetConfigName("settings")
-	viper.AddConfigPath(".")
-	viper.SetEnvPrefix("speedtest")
-	viper.AutomaticEnv()
-}
-
-func Load(configPath string) Config {
-	viper.SetConfigFile(configPath)
-	return loadConfig()
-}
-
-var load sync.Once
-
-func loadConfig() Config {
-	load.Do(func() {
-		var conf Config
-		if err := viper.ReadInConfig(); err != nil {
-			if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-				// Config file not found; ignore error if desired
-			} else {
-				panic(fmt.Errorf("failed to read config: %w", err))
-			}
+	if configPath == "" {
+		if err := k.Load(file.Provider("settings.toml"), toml.Parser()); err != nil {
+			slog.Info("no config found, using defaults", slog.Any("error", err))
 		}
-		if err := viper.Unmarshal(&conf); err != nil {
-			panic(fmt.Errorf("failed to parse config: %w", err))
+	} else {
+		if err := k.Load(file.Provider(configPath), toml.Parser()); err != nil {
+			slog.Error("loading from config",
+				slog.String("path", configPath),
+				slog.Any("error", err))
+			return nil, err
 		}
-		loadedConfig = &conf
-	})
-	return *loadedConfig
+	}
+
+	if err := k.Load(env.Provider("SPEEDTEST_", ".", func(s string) string {
+		ret := strings.TrimPrefix(s, "SPEEDTEST_")
+		ret = strings.ToLower(ret)
+		return ret
+	}), nil); err != nil {
+		slog.Error("loading from env", slog.Any("error", err))
+	}
+
+	if err := k.UnmarshalWithConf("", config, koanf.UnmarshalConf{Tag: "mapstructure"}); err != nil {
+		slog.Error("unmarshal to config", slog.Any("error", err))
+	}
+	return config, nil
 }
+
 func LoadedConfig() *Config {
-	loadConfig()
-	return loadedConfig
+	return config
 }

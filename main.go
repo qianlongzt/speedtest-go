@@ -46,10 +46,14 @@ func init() {
 
 func main() {
 	flag.Parse()
-	conf := config.Load(*optConfig)
-	web.SetServerLocation(&conf)
-	results.Initialize(&conf)
-	err := database.SetDBInfo(&conf)
+	conf, err := config.Load(*optConfig)
+	if err != nil {
+		slog.Error("failed to load config", slog.Any("error", err))
+		return
+	}
+	web.SetServerLocation(conf)
+	results.Initialize(conf)
+	err = database.SetDBInfo(conf)
 	if err != nil {
 		slog.Error("init db", slog.Any("error", err))
 		return
@@ -57,7 +61,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	stopWait := make(chan struct{})
 	go func() {
-		err := web.ListenAndServe(ctx, &conf)
+		err := web.ListenAndServe(ctx, conf)
 		if err != nil {
 			slog.Error("web server", slog.Any("error", err))
 		}
