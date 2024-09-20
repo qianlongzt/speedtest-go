@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -19,10 +18,6 @@ import (
 	slogzerolog "github.com/samber/slog-zerolog/v2"
 
 	_ "golang.org/x/crypto/x509roots/fallback"
-)
-
-var (
-	optConfig = flag.String("c", "", "config file to be used, defaults to settings.toml in the same directory")
 )
 
 func init() {
@@ -45,8 +40,7 @@ func init() {
 }
 
 func main() {
-	flag.Parse()
-	conf, err := config.Load(*optConfig)
+	conf, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", slog.Any("error", err))
 		return
