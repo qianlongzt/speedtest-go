@@ -10,14 +10,13 @@ import (
 	"net/http"
 
 	"github.com/coreos/go-systemd/v22/activation"
-	"github.com/go-chi/chi/v5"
 	"github.com/librespeed/speedtest/config"
 	"github.com/pires/go-proxyproto"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
 
-func startListener(ctx context.Context, conf *config.Config, r *chi.Mux) error {
+func startListener(ctx context.Context, conf *config.Config, r http.Handler) error {
 	// See if systemd socket activation has been used when starting our process
 	listeners, err := activation.Listeners()
 	if err != nil {
