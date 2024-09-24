@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -53,23 +54,34 @@ func main() {
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	stopWait := make(chan struct{})
+
+	stopWait, closeFn := onceChan[struct{}]()
 	go func() {
 		err := web.ListenAndServe(ctx, conf)
 		if err != nil {
 			slog.Error("web server", slog.Any("error", err))
 		}
-		close(stopWait)
+		closeFn()
 	}()
-	wait()
+	go wait(closeFn)
+	<-stopWait
 	slog.Info("server stopped")
 	cancel()
-	<-stopWait
 }
 
-func wait() {
+func wait(closeFn func()) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	sig := <-sigChan
-	slog.Info("signal received", "signal", sig)
+	slog.Info("signal received", "signal", sig.String())
+	closeFn()
+}
+func onceChan[T any]() (chan T, func()) {
+	var once sync.Once
+	var c = make(chan T)
+	return c, func() {
+		once.Do(func() {
+			close(c)
+		})
+	}
 }
