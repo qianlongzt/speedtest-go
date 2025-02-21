@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,8 +11,6 @@ import (
 	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/librespeed/speedtest/config"
 	"github.com/pires/go-proxyproto"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 func startListener(ctx context.Context, conf *config.Config, r http.Handler) error {
@@ -65,14 +62,16 @@ func startListener(ctx context.Context, conf *config.Config, r http.Handler) err
 	srv := &http.Server{
 		Handler: r,
 	}
+	srv.Protocols = new(http.Protocols)
+	srv.Protocols.SetHTTP1(true)
+
 	var listenFn func() error
 	// TLS and HTTP/2.
 	if conf.EnableTLS {
 		slog.Info("Use TLS connection")
-
-		if !conf.EnableHTTP2 {
-			// If TLSNextProto is not nil, HTTP/2 support is not enabled automatically.
-			srv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler))
+		if conf.EnableHTTP2 {
+			slog.Info("Use HTTP2 connection.")
+			srv.Protocols.SetHTTP2(conf.EnableHTTP2)
 		}
 		listenFn = func() error {
 			return srv.ServeTLS(listener, conf.TLSCertFile, conf.TLSKeyFile)
@@ -80,12 +79,7 @@ func startListener(ctx context.Context, conf *config.Config, r http.Handler) err
 	} else {
 		if conf.EnableHTTP2 {
 			slog.Info("Use HTTP2 connection.")
-			h2s := &http2.Server{}
-			srv.Handler = h2c.NewHandler(r, h2s)
-			err = http2.ConfigureServer(srv, h2s)
-			if err != nil {
-				return fmt.Errorf("http2.ConfigureServer: %s", err)
-			}
+			srv.Protocols.SetUnencryptedHTTP2(conf.EnableHTTP2)
 		}
 		listenFn = func() error {
 			return srv.Serve(listener)
